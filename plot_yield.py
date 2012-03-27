@@ -78,14 +78,69 @@ def show_spread(data, start, stop):
     plt.boxplot(y_data)
     plt.setp(plt.gca(), 'xticklabels', ["\'"+str(x)[2:] for x in x_data] )
 
-if __name__ == "__main__":
-    url = "http://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData"
-    all_data = parse_xml_from_url(url) 
+def help():
+    result =  "  get_data      | gd         Get yield data\n"
+    result += "  yield_spread  | ys         Show yield spread\n"
+    result += "  yield_curve   | yc         Show yield curve\n"
+    result += "  quit          | q          Quit"
+    return result
 
-    print "Generating Plots"
-    #show_yield_curve(all_data, all_data.keys())
-    show_spread(all_data, 3, 120)
-    #show_spread(all_data, 6, 120)
-    #show_spread(all_data, 6, 240)
-    plt.show()
-    print " Done generating plots"
+if __name__ == "__main__":
+    print "Welcome to YieldCurves!"
+    plt.ion()
+    all_data = {}
+    while(True):
+        i = raw_input("(yieldcurves) ")
+        continue_through = False
+        if i == "help" or i == "h":
+            print help()
+        elif i == "get_data" or i == "gd":
+            loc = raw_input("Automatically fetch data from the Treasury website [y|n]: ")
+            if loc == "y":
+                url = "http://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData"
+                all_data = parse_xml_from_url(url)
+            elif loc == "n":
+                loc = raw_input("File location or url [file|url]: ")
+                #TODO: Add the local file input code here
+            else:
+                pass
+        elif i == "yield_spread" or i == "ys":
+            if all_data:
+                start = raw_input("Starting maturity in months [1|3|6|12|24|36|60|84|120|240|360]: ")
+                end   = raw_input("Ending maturity in months   [1|3|6|12|24|36|60|84|120|240|360]: ")
+                try:
+                    start, end = int(start), int(end)
+                    show_spread(all_data, start, end)
+                    plt.show()
+                except:
+                    print "Invalid input"
+            else:
+                print "You need to get yield data before you can display it!"
+        elif i == "yield_curve" or i == "yc":
+            if all_data:
+                years = raw_input("Display a single year or multiple years [single|multiple]: ")
+                if years == "single":
+                    year = raw_input("Which year: ")
+                    try:
+                        year = int(year)
+                        show_yield_curve(all_data, [year])
+                    except:
+                        print "Invalid input"
+                elif years == "multiple":
+                    start_year = raw_input("Start year: ")
+                    end_year   = raw_input("End year: ")
+                    try:
+                        start_year, end_year = int(start_year), int(end_year)
+                        years = range(start_year, end_year)
+                        show_yield_curve(all_data, years)
+                    except:
+                        print "Invalid input"
+                else:
+                    pass
+            else:
+                print "You need to get yield data before you can display it!"
+        elif i == "quit" or i == "q":
+            break
+        else:
+            continue
+        
