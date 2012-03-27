@@ -1,8 +1,9 @@
 #!/usr/bin/python2.7
 import urllib
 from xml.dom.minidom import parse
-from datetime import datetime
 from itertools import groupby
+import datetime
+import matplotlib.dates as mdates
 import dateutil.parser
 import pprint
 import numpy as np
@@ -11,19 +12,18 @@ import csv
 import sys
 from decimal import *
 
-columns = [1, 3, 6, 12, 24, 36, 60, 84, 120, 240, 360]
+columns = ["Year", 1, 3, 6, 12, 24, 36, 60, 84, 120, 240, 360]
 
-def analyze_data(data):
+def analyze_data(lines):
     year = lambda i: int(i[0][0:4])
-    lines = [i for i in data]
     grouped_years = groupby(lines, year)
     out = {}
     for (year, d) in grouped_years:
-        out[year] = [] 
-        for (duration, yields) in zip(columns, np.array(list(d)).T[1:]):
+        out[year] = dict() 
+        for (duration, yields) in zip(columns[1:], np.array(list(d)).T[1:]):
             numeric_yields = [float(i) for i in yields if len(i) > 0]
             if len(numeric_yields) > 0:
-                out[year].append((duration, sum(numeric_yields) / len(numeric_yields)))
+                out[year][duration] = sum(numeric_yields) / len(numeric_yields)
     return out
         
 
@@ -33,37 +33,71 @@ def show_yield_curve(data):
     plt.ylabel('Yield (%)')
     plt.title("Yield Curves")
     for year in data:
-        x = [duration for (duration,y) in data[year]]
-        y = [y for (duration,y) in data[year]]
+        t = sorted([i for i in data[year].items()], key=(lambda (k,v): k))
+
+        x = [duration for (duration,y) in t]
+        y = [y for (duration,y) in t]
         plt.plot(x,y, label="%i"%year)
     plt.legend()
 
-def show_spread(data, start, stop):
-    x_data, y_data = [], []
+def show_spread(data, nly, up, down):
+
+    years    = mdates.YearLocator()   # every year
+    months   = mdates.MonthLocator()  # every month
+    yearsFmt = mdates.DateFormatter('%Y')
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    x_data, spread_y, down_y = [], [], []
     median_yield = []
-    for (year, yields) in data.items():
-        if(start in yields and stop in yields):
-            if yields[start] and yields[stop]:
-                x_data.append(year)
-                spread = [yields[stop][i] - yields[start][i] for i in range(min(len(yields[start]), len(yields[stop])))]
-                y_data.append(spread)
-                median_yield.append(np.median(spread)) 
-            #y_data.append(yields[stop]-yields[start])
-    plt.figure()
+    up_pos = columns.index(up)
+    down_pos = columns.index(down)
+    for l in data:
+        day = dateutil.parser.parse(l[0])
+        up_val = l[up_pos]
+        down_val = l[down_pos]
+
+        if len(up_val) > 0 and len(down_val) > 0:
+            x_data.append(day)
+            d = float(down_val)
+
+            down_y.append(d)
+            spread_y.append(float(up_val) - d)
+
+    ax.plot(x_data, down_y)
+    ax.plot(x_data, spread_y)
+    
+    nly_x, nly_y = [], []
+
+    for i in nly:
+        nly_x.append(dateutil.parser.parse(i[0]))
+        nly_y.append(float(i[6]))
+
+    ax.plot(nly_x, nly_y)
+
+    ax.xaxis.set_major_locator(years)
+    ax.xaxis.set_major_formatter(yearsFmt)
+    ax.xaxis.set_minor_locator(months)
+
+    datemin = datetime.date(min(nly_x).year, 1, 1)
+    datemax = datetime.date(max(nly_x).year + 1, 1, 1)
+    ax.set_xlim(datemin, datemax)
+
+    ax.grid(True)
+    fig.autofmt_xdate()
+
     plt.xlabel('Year')
-    plt.ylabel('%i to %i month yield spread' % (start,stop))
-    plt.title('Yield Spread from Month %i to Month %i' % (start,stop))
-    plt.plot(x_data, [np.mean(median_yield) for i in median_yield])    
-    plt.boxplot(y_data)
-    plt.setp(plt.gca(), 'xticklabels', ["\'"+str(x)[2:] for x in x_data] )
+    plt.ylabel('%i to %i month yield spread' % (up,down))
+    plt.title('Yield Spread from Month %i to Month %i' % (up,down))
+    plt.show()
 
 if __name__ == "__main__":
-    all_data = analyze_data(csv.reader(sys.stdin))
-    print(all_data[1990])
     
-    show_yield_curve(all_data)
-    #show_spread(all_data, 3, 120)
+    all_data = [i for i in csv.reader(sys.stdin) if i[0][0:4]>="1997"]
+    nly = [i for i in csv.reader(open("NLY.csv"))]
+    
+    #show_yield_curve(all_data)
+    show_spread(all_data, nly, 120, 3)
     #show_spread(all_data, 6, 120)
     #show_spread(all_data, 6, 240)
-    plt.show()
-    print " Done generating plots"
