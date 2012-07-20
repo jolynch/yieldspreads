@@ -1,7 +1,6 @@
 #!/usr/bin/python2.7
 import urllib
-from xml.dom.minidom import parse
-from itertools import groupby
+from itertools import groupby, islice, dropwhile
 import datetime
 import matplotlib.dates as mdates
 import dateutil.parser
@@ -40,8 +39,7 @@ def show_yield_curve(data):
         plt.plot(x,y, label="%i"%year)
     plt.legend()
 
-def show_spread(data, nly, up, down):
-
+def show_spread(nly, spreads, yields):
     years    = mdates.YearLocator()   # every year
     months   = mdates.MonthLocator()  # every month
     yearsFmt = mdates.DateFormatter('%Y')
@@ -49,55 +47,83 @@ def show_spread(data, nly, up, down):
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
-    x_data, spread_y, down_y = [], [], []
-    median_yield = []
-    up_pos = columns.index(up)
-    down_pos = columns.index(down)
-    for l in data:
-        day = dateutil.parser.parse(l[0])
-        up_val = l[up_pos]
-        down_val = l[down_pos]
-
-        if len(up_val) > 0 and len(down_val) > 0:
-            x_data.append(day)
-            d = float(down_val)
-
-            down_y.append(d)
-            spread_y.append(float(up_val) - d)
-
-    ax.plot(x_data, down_y)
-    ax.plot(x_data, spread_y)
+    x = [date for (date, spread, funds) in spreads]
+    y_s = [spread for (date, spread, funds) in spreads]
+    y_f = [funds for (date, spread, funds) in spreads]
+    ax.plot(x, y_s)
+    ax.plot(x, y_f)
+    ax.set_ylim(-2, 12)
     
     nly_x, nly_y = [], []
 
     for i in nly:
         nly_x.append(dateutil.parser.parse(i[0]))
-        nly_y.append(float(i[6]))
+        nly_y.append(float(i[1]))
+    
+    ax2 = ax.twinx()
+    axis_color = 'r'
+    ax2.plot(nly_x, nly_y, axis_color, linewidth=0.5)
+    ax2.set_ylabel('NLY price', color=axis_color)
+    for tl in ax2.get_yticklabels():
+        tl.set_color(axis_color)
+    ax2.set_ylim(0, 23)
 
-    ax.plot(nly_x, nly_y)
+    x = [date for (date, y) in yields]
+    y = [y for (date, y) in yields]
+    print y
+    ax2.scatter(x, y)
 
     ax.xaxis.set_major_locator(years)
     ax.xaxis.set_major_formatter(yearsFmt)
     ax.xaxis.set_minor_locator(months)
 
-    datemin = datetime.date(min(nly_x).year, 1, 1)
-    datemax = datetime.date(max(nly_x).year + 1, 1, 1)
+    datemin = datetime.date(2005, 1, 1)
+    datemax = datetime.date(2013, 1, 1)
     ax.set_xlim(datemin, datemax)
 
     ax.grid(True)
     fig.autofmt_xdate()
 
     plt.xlabel('Year')
-    plt.ylabel('%i to %i month yield spread' % (up,down))
-    plt.title('Yield Spread from Month %i to Month %i' % (up,down))
+    plt.ylabel('Yield spread')
+    plt.title('Yield spread')
     plt.show()
 
 if __name__ == "__main__":
-    
-    all_data = [i for i in csv.reader(sys.stdin) if i[0][0:4]>="1997"]
-    nly = [i for i in csv.reader(open("NLY.csv"))]
+    #argv[1] -> "funds rate"
+    #argv[2] -> "mortgage rate"
+    #argv[3] -> "price"
+
+    transform = lambda i: (dateutil.parser.parse(i[0]), float(i[1]))
+    daterange = lambda i: i[0].year >= 1997
+    funds = [transform(i) for i in csv.reader(open(sys.argv[1]))]
+    funds = filter(daterange, funds)
+    mortgage = [transform(i) for i in csv.reader(open(sys.argv[2]))]
+    mortgage = filter(daterange, mortgage)
+
+    def continuator(l): #a generator which fills in the gaps between data points
+        tail = islice(l, 1, None)
+        for (f, t) in zip(l, tail):
+            value = f[1]
+            start = f[0]
+            end = t[0]
+            for n in range((end - start).days):
+                yield (start + datetime.timedelta(n), value)
+        yield l[-1]
+
+    start = max(funds[0][0], mortgage[0][0])
+    prestart = lambda i: i[0] < start
+    funds = dropwhile(prestart, continuator(funds))
+    mortgage = dropwhile(prestart, continuator(mortgage))
+
+    spreads = [(f[0], m[1] - f[1], f[1]) for (f, m) in zip(funds, mortgage)]
+
+    c = 4 # <- the holy constant of made-upness
+    nly = [(i[0], float(i[1])) for i in csv.reader(open(sys.argv[3]))]
+    price_lookup = dict(nly) #HACK!
+    yields = [(dateutil.parser.parse(i[0]), c * 100 * float(i[1])/price_lookup[i[0]]) for i in csv.reader(open(sys.argv[4]))]
     
     #show_yield_curve(all_data)
-    show_spread(all_data, nly, 120, 3)
+    show_spread(nly, spreads, yields)
     #show_spread(all_data, 6, 120)
     #show_spread(all_data, 6, 240)

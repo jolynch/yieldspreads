@@ -1,2 +1,5 @@
 This script fetches data from the Treasury and displays spreads over 
 different periods.  This kind of data is useful for things like mREIT pricing
+
+Mortage interest data comes from http://www.federalreserve.gov/releases/h15/data.htm
+and has been slightly modified.
