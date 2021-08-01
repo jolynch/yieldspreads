@@ -64,7 +64,7 @@ def parse_xml_from_url(url):
 
 
 def show_yield_curve(data, years):
-    plt.figure()
+    plt.figure(figsize=(12, 8))
     plt.xlabel("Duration (Months)")
     plt.ylabel("Yield (%)")
     plt.title("Yield Curves")
@@ -94,15 +94,14 @@ def show_spread(data, start, stop):
                 y_data.append(spread)
                 median_yield.append(np.median(spread))
             # y_data.append(yields[stop]-yields[start])
-    plt.figure()
+    plt.figure(figsize=(14, 8))
     plt.xlabel("Year")
-    print(min(x_data))
-    print(max(x_data))
     plt.ylabel("%i to %i month yield spread" % (start, stop))
     plt.title("Yield Spread from Month %i to Month %i" % (start, stop))
     plt.plot(x_data, [np.mean(median_yield) for i in median_yield])
     plt.boxplot(y_data)
     plt.setp(plt.gca(), "xticklabels", ["'" + str(x)[2:] for x in x_data])
+    plt.xlim([0, max(x_data) - min(x_data)])
 
 
 def help():
