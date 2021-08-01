@@ -1,6 +1,7 @@
-#!/usr/bin/python2.7
-import urllib
-from xml.dom.minidom import parse
+#!/usr/bin/env python3
+
+import urllib.request
+from xml.dom.minidom import parseString
 from datetime import datetime
 import dateutil.parser
 import pprint
@@ -9,12 +10,15 @@ import matplotlib.pyplot as plt
 
 
 def parse_xml_from_url(url):
-    print "Fetching XML from %s" % url
-    dom = parse(urllib.urlopen(url))
-    print " Done importing XML"
+    print("Fetching XML from %s" % url)
+    with urllib.request.urlopen(url) as fd:
+        info = fd.read().decode("utf-8")
+        dom = parseString(info)
+
+    print(" Done importing XML")
     all_data = {}
 
-    print "Parsing data from the XML looking for data between 1990 and %i" % (datetime.now().year)
+    print("Parsing data from the XML looking for data between 1990 and %i" % (datetime.now().year))
     for year in range(1990,datetime.now().year+1):
         all_data[year] = dict((i,[]) for i in [1,3,6,12,24,36,60,84,120,240,360])
 
@@ -42,7 +46,7 @@ def parse_xml_from_url(url):
                     xml_node = data.getElementsByTagName(tag_names[dur])[0]
                     if xml_node.hasChildNodes():
                         year_data[dur].append(float(xml_node.firstChild.nodeValue))
-    print " Done parsing the data from the XML"
+    print(" Done parsing the data from the XML")
     return all_data
 
 def show_yield_curve(data,years):
@@ -68,13 +72,13 @@ def show_spread(data, start, stop):
                 x_data.append(year)
                 spread = [yields[stop][i] - yields[start][i] for i in range(min(len(yields[start]), len(yields[stop])))]
                 y_data.append(spread)
-                median_yield.append(np.median(spread)) 
+                median_yield.append(np.median(spread))
             #y_data.append(yields[stop]-yields[start])
     plt.figure()
     plt.xlabel('Year')
     plt.ylabel('%i to %i month yield spread' % (start,stop))
     plt.title('Yield Spread from Month %i to Month %i' % (start,stop))
-    plt.plot(x_data, [np.mean(median_yield) for i in median_yield])    
+    plt.plot(x_data, [np.mean(median_yield) for i in median_yield])
     plt.boxplot(y_data)
     plt.setp(plt.gca(), 'xticklabels', ["\'"+str(x)[2:] for x in x_data] )
 
@@ -86,61 +90,61 @@ def help():
     return result
 
 if __name__ == "__main__":
-    print "Welcome to YieldCurves!"
+    print("Welcome to YieldCurves!")
     plt.ion()
     all_data = {}
     while(True):
-        i = raw_input("(yieldcurves) ")
+        i = input("(yieldcurves) ")
         continue_through = False
         if i == "help" or i == "h":
-            print help()
+            print(help())
         elif i == "get_data" or i == "gd":
-            loc = raw_input("Automatically fetch data from the Treasury website [y|n]: ")
+            loc = input("Automatically fetch data from the Treasury website [y|n]: ")
             if loc == "y":
                 url = "http://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData"
                 all_data = parse_xml_from_url(url)
             elif loc == "n":
-                loc = raw_input("File location or url [file|url]: ")
+                loc = input("File location or url [file|url]: ")
                 #TODO: Add the local file input code here
             else:
                 pass
         elif i == "yield_spread" or i == "ys":
             if all_data:
-                start = raw_input("Starting maturity in months [1|3|6|12|24|36|60|84|120|240|360]: ")
-                end   = raw_input("Ending maturity in months   [1|3|6|12|24|36|60|84|120|240|360]: ")
+                start = input("Starting maturity in months [1|3|6|12|24|36|60|84|120|240|360]: ")
+                end   = input("Ending maturity in months   [1|3|6|12|24|36|60|84|120|240|360]: ")
                 try:
                     start, end = int(start), int(end)
                     show_spread(all_data, start, end)
                     plt.show()
                 except:
-                    print "Invalid input"
+                    print("Invalid input")
             else:
-                print "You need to get yield data before you can display it!"
+                print("You need to get yield data before you can display it!")
         elif i == "yield_curve" or i == "yc":
             if all_data:
-                years = raw_input("Display a single year or multiple years [single|multiple]: ")
+                years = input("Display a single year or multiple years [single|multiple]: ")
                 if years == "single":
-                    year = raw_input("Which year: ")
+                    year = input("Which year: ")
                     try:
                         year = int(year)
                         show_yield_curve(all_data, [year])
                     except:
-                        print "Invalid input"
+                        print("Invalid input")
                 elif years == "multiple":
-                    start_year = raw_input("Start year: ")
-                    end_year   = raw_input("End year: ")
+                    start_year = input("Start year: ")
+                    end_year   = input("End year: ")
                     try:
                         start_year, end_year = int(start_year), int(end_year)
                         years = range(start_year, end_year)
                         show_yield_curve(all_data, years)
                     except:
-                        print "Invalid input"
+                        print("Invalid input")
                 else:
                     pass
             else:
-                print "You need to get yield data before you can display it!"
+                print("You need to get yield data before you can display it!")
         elif i == "quit" or i == "q":
             break
         else:
             continue
-        
+
