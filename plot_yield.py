@@ -3,6 +3,9 @@
 import urllib.request
 from xml.dom.minidom import parseString
 from datetime import datetime
+import os
+import pickle
+from pathlib import Path
 import dateutil.parser
 import numpy as np
 import matplotlib.pyplot as plt
@@ -55,9 +58,7 @@ def parse_xml_from_url(url):
                 if data.getElementsByTagName(tag_names[dur]):
                     xml_node = data.getElementsByTagName(tag_names[dur])[0]
                     if xml_node.hasChildNodes():
-                        year_data[dur].append(
-                            float(xml_node.firstChild.nodeValue)
-                        )
+                        year_data[dur].append(float(xml_node.firstChild.nodeValue))
     print(" Done parsing the data from the XML")
     return all_data
 
@@ -95,6 +96,8 @@ def show_spread(data, start, stop):
             # y_data.append(yields[stop]-yields[start])
     plt.figure()
     plt.xlabel("Year")
+    print(min(x_data))
+    print(max(x_data))
     plt.ylabel("%i to %i month yield spread" % (start, stop))
     plt.title("Yield Spread from Month %i to Month %i" % (start, stop))
     plt.plot(x_data, [np.mean(median_yield) for i in median_yield])
@@ -114,6 +117,15 @@ if __name__ == "__main__":
     print("Welcome to YieldCurves!")
     plt.ion()
     all_data = {}
+    cache = Path("./.spreads.dat")
+    if cache.is_file():
+        print("Loading cached data from .spreads.dat")
+        with cache.open(mode="rb") as fd:
+            try:
+                all_data = pickle.load(fd)
+            except Exception as exp:
+                print("Error loading cached data: " + exp)
+                all_data = {}
     while True:
         i = input("(yieldcurves) ")
         continue_through = False
@@ -126,6 +138,8 @@ if __name__ == "__main__":
                     "http://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData"
                 )
                 all_data = parse_xml_from_url(url)
+                with cache.open(mode="wb") as fd:
+                    pickle.dump(all_data, fd)
             elif loc == "n":
                 loc = input("File location or url [file|url]: ")
                 # TODO: Add the local file input code here
@@ -143,8 +157,8 @@ if __name__ == "__main__":
                     start, end = int(start), int(end)
                     show_spread(all_data, start, end)
                     plt.show()
-                except Exception:
-                    print("Invalid input")
+                except Exception as exp:
+                    print("Invalid input: " + exp)
             else:
                 print("You need to get yield data before you can display it!")
         elif i == "yield_curve" or i == "yc":
@@ -157,8 +171,8 @@ if __name__ == "__main__":
                     try:
                         year = int(year)
                         show_yield_curve(all_data, [year])
-                    except Exception:
-                        print("Invalid input")
+                    except Exception as exp:
+                        print("Invalid input: " + exp)
                 elif years == "multiple":
                     start_year = input("Start year: ")
                     end_year = input("End year: ")
@@ -166,8 +180,8 @@ if __name__ == "__main__":
                         start_year, end_year = int(start_year), int(end_year)
                         years = range(start_year, end_year)
                         show_yield_curve(all_data, years)
-                    except Exception:
-                        print("Invalid input")
+                    except Exception as exp:
+                        print("Invalid input: " + exp)
                 else:
                     pass
             else:
