@@ -64,10 +64,15 @@ def parse_xml_from_url(url):
 
 
 def show_yield_curve(data, years):
-    plt.figure(figsize=(12, 8))
+    fig = plt.figure(figsize=(12, 8))
     plt.xlabel("Duration (Months)")
     plt.ylabel("Yield (%)")
     plt.title("Yield Curves")
+
+    ax = fig.axes[0]
+    colormap = plt.cm.nipy_spectral
+    colors = [colormap(i) for i in np.linspace(0, 1, len(years))]
+    ax.set_prop_cycle("color", colors)
     for year in years:
         yield_curve = all_data[year]
         transformed = [
@@ -134,7 +139,10 @@ if __name__ == "__main__":
             loc = input("Automatically fetch data from the Treasury website [y|n]: ")
             if loc == "y":
                 url = (
-                    "http://data.treasury.gov/feed.svc/DailyTreasuryYieldCurveRateData"
+                    "https://home.treasury.gov/resource-center/"
+                    "data-chart-center/interest-rates/pages/"
+                    "xml?data=daily_treasury_yield_curve"
+                    "&field_tdr_date_value=all"
                 )
                 all_data = parse_xml_from_url(url)
                 with cache.open(mode="wb") as fd:
@@ -163,16 +171,16 @@ if __name__ == "__main__":
         elif i == "yield_curve" or i == "yc":
             if all_data:
                 years = input(
-                    "Display a single year or multiple years [single|multiple]: "
+                    "Display a single year or multiple years [(s)ingle|(m)ultiple]: "
                 )
-                if years == "single":
+                if years in ("single", "s"):
                     year = input("Which year: ")
                     try:
                         year = int(year)
                         show_yield_curve(all_data, [year])
                     except Exception as exp:
                         print("Invalid input: " + exp)
-                elif years == "multiple":
+                elif years in ("multiple", "m"):
                     start_year = input("Start year: ")
                     end_year = input("End year: ")
                     try:
