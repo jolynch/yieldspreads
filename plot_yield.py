@@ -12,16 +12,10 @@ import matplotlib.pyplot as plt
 
 
 def parse_xml_from_url(url):
-    print("Fetching XML from %s" % url)
-    with urllib.request.urlopen(url) as fd:
-        info = fd.read().decode("utf-8")
-        dom = parseString(info)
-
-    print(" Done importing XML")
     all_data = {}
 
     print(
-        "Parsing data from the XML looking for data between 1990 and %i"
+        "Pulling data from the XML looking for data between 1990 and %i"
         % (datetime.now().year)
     )
     for year in range(1990, datetime.now().year + 1):
@@ -46,20 +40,32 @@ def parse_xml_from_url(url):
     )
     durations = tag_names.keys()
 
-    for node in dom.getElementsByTagName("entry"):
-        data = node.getElementsByTagName("content")[0].getElementsByTagName(
-            "m:properties"
-        )[0]
-        date = data.getElementsByTagName("d:NEW_DATE")[0].firstChild.nodeValue
-        date = dateutil.parser.parse(date)
-        if date.year in all_data:
-            year_data = all_data[date.year]
-            for dur in durations:
-                if data.getElementsByTagName(tag_names[dur]):
-                    xml_node = data.getElementsByTagName(tag_names[dur])[0]
-                    if xml_node.hasChildNodes():
-                        year_data[dur].append(float(xml_node.firstChild.nodeValue))
-    print(" Done parsing the data from the XML")
+    page = 0
+    more = True
+    print("Fetching XML in pages from %s" % url)
+    while more:
+        fetch = f"{url}&page={page}"
+        print("Fetching XML from %s" % fetch)
+        with urllib.request.urlopen(fetch) as fd:
+            info = fd.read().decode("utf-8")
+            dom = parseString(info)
+        more = False
+        for node in dom.getElementsByTagName("entry"):
+            more = True
+            data = node.getElementsByTagName("content")[0].getElementsByTagName(
+                "m:properties"
+            )[0]
+            date = data.getElementsByTagName("d:NEW_DATE")[0].firstChild.nodeValue
+            date = dateutil.parser.parse(date)
+            if date.year in all_data:
+                year_data = all_data[date.year]
+                for dur in durations:
+                    if data.getElementsByTagName(tag_names[dur]):
+                        xml_node = data.getElementsByTagName(tag_names[dur])[0]
+                        if xml_node.hasChildNodes():
+                            year_data[dur].append(float(xml_node.firstChild.nodeValue))
+        page = page + 1
+    print("Done parsing the data from the XML")
     return all_data
 
 
